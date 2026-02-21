@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Gym Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #17191d;
+    --surface2: #1e2126;
+    --border: #2a2d34;
+    --accent: #c8f135;
+    --accent2: #4af0c4;
+    --text: #e8eaed;
+    --muted: #6b7280;
+    --danger: #f87171;
+    --week-a: #4af0c4;
+    --week-b: #f0884a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .week-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+  .week-a-badge { background: rgba(74,240,196,0.15); color: var(--week-a); border: 1px solid rgba(74,240,196,0.3); }
+  .week-b-badge { background: rgba(240,136,74,0.15); color: var(--week-b); border: 1px solid rgba(240,136,74,0.3); }
+
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 65px;
+    z-index: 99;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .page { display: none; padding: 16px; }
+  .page.active { display: block; }
+
+  .session-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .session-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0e0f11;
+  }
+
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .btn-danger {
+    background: rgba(248,113,113,0.1);
+    color: var(--danger);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+
+  .circuit-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .circuit-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .exercise-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .exercise-card.complete {
+    border-color: rgba(74,240,196,0.4);
+    background: linear-gradient(135deg, var(--surface), rgba(74,240,196,0.04));
+  }
+
+  .exercise-card.progressed {
+    border-color: rgba(200,241,53,0.5);
+    background: linear-gradient(135deg, var(--surface), rgba(200,241,53,0.05));
+  }
+
+  .exercise-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .exercise-name {
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .exercise-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .progress-flag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(200,241,53,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(200,241,53,0.3);
+    white-space: nowrap;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .sets-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .set-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr 40px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .set-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .set-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    text-align: center;
+    width: 100%;
+    -webkit-appearance: none;
+  }
+
+  .set-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .set-input::placeholder { color: var(--muted); font-size: 12px; }
+
+  .set-check {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 16px;
+  }
+
+  .set-check.done {
+    background: rgba(74,240,196,0.15);
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .set-labels {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr 40px;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .set-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  .note-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    margin-top: 10px;
+    resize: none;
+    height: 36px;
+  }
+
+  .note-input:focus { outline: none; border-color: var(--border); color: var(--text); height: 60px; transition: height 0.2s; }
+
+  .finish-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    border-radius: 12px;
+    margin-top: 20px;
+    font-family: 'Bebas Neue', cursive;
+    letter-spacing: 2px;
+  }
+
+  /* History page */
+  .history-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+
+  .history-entry:active { background: var(--surface2); }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .history-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .history-summary {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .history-detail {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .history-detail.open { display: block; }
+
+  .history-exercise {
+    margin-bottom: 10px;
+  }
+
+  .history-exercise-name {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .history-sets {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Progress page */
+  .prog-exercise {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .prog-name {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .prog-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .prog-stat {
+    text-align: center;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 6px;
+  }
+
+  .prog-stat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .prog-stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  .progression-tip {
+    background: rgba(200,241,53,0.07);
+    border: 1px solid rgba(200,241,53,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: flex-end;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 22px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .inline-tip {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 8px;
+    padding: 0 4px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">FOIL STRONG</div>
+  <div id="weekBadge" class="week-badge week-a-badge">WEEK A</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('session')">SESSION</div>
+  <div class="tab" onclick="showPage('history')">HISTORY</div>
+  <div class="tab" onclick="showPage('progress')">PROGRESS</div>
+</div>
+
+<div id="session" class="page active"></div>
+<div id="history" class="page"></div>
+<div id="progress" class="page"></div>
+
+<div class="modal-overlay" id="finishModal">
+  <div class="modal">
+    <div class="modal-title">Session Complete 💪</div>
+    <p style="font-size:14px; color:var(--muted); margin-bottom:20px; line-height:1.7">
+      Nice work. Session saved. Next session will be <strong id="nextWeekLabel" style="color:var(--text)"></strong>.
+    </p>
+    <div id="progressionAlerts" style="margin-bottom:16px;"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="closeFinishModal()">Let's go</button>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+const EXERCISES = [
+  // Circuit 1
+  {
+    id: 'squat', name: 'Back Barbell Squat', circuit: 1,
+    sets: 3,
+    weekA: { reps: 8, weight: true, defaultWeight: 80 },
+    weekB: { reps: 5, weight: true, defaultWeight: 85 },
+    progressRule: 'Hit all sets clean → add 2.5kg next session',
+    progressType: 'weight', step: 2.5
+  },
+  {
+    id: 'pullup', name: 'Pull-ups', circuit: 1,
+    sets: 3,
+    weekA: { reps: 12, weight: false },
+    weekB: { reps: 8, weight: false },
+    progressRule: 'Hit 3×15 bodyweight → add 2.5kg (belt/vest)',
+    progressType: 'reps_then_weight', repTarget: 15, step: 2.5
+  },
+  {
+    id: 'lunge', name: 'Lunge Complex (front/side/front)', circuit: 1,
+    sets: 3,
+    weekA: { reps: 12, weight: true, defaultWeight: 10 },
+    weekB: { reps: 8, weight: true, defaultWeight: 12 },
+    progressRule: 'Hit all sets clean → add 2kg next session',
+    progressType: 'weight', step: 2
+  },
+  // Circuit 2
+  {
+    id: 'nordic', name: 'Nordic Hamstring Curls', circuit: 2,
+    sets: 3,
+    weekA: { reps: 5, weight: false },
+    weekB: { reps: 5, weight: false },
+    progressRule: 'Progress by reducing hand assistance — track quality 1-5',
+    progressType: 'quality',
+    tip: 'Log form quality: 1=big push, 3=fingertip touch, 5=hands-free'
+  },
+  {
+    id: 'dips', name: 'Dips', circuit: 2,
+    sets: 3,
+    weekA: { reps: 12, weight: false },
+    weekB: { reps: 8, weight: false },
+    progressRule: 'Hit 3×15 bodyweight → add 2.5kg (belt/vest)',
+    progressType: 'reps_then_weight', repTarget: 15, step: 2.5
+  },
+  {
+    id: 'core', name: 'Hanging Core (TTB / crunch)', circuit: 2,
+    sets: 3,
+    weekA: { reps: 10, weight: false },
+    weekB: { reps: 8, weight: false },
+    progressRule: 'Ladder: tuck crunch → knee raise → L-tuck → full TTB → weighted TTB',
+    progressType: 'variation',
+    tip: 'Note variation used each session'
+  }
+];
+
+function getState() {
+  return JSON.parse(localStorage.getItem('foilstrong') || '{}');
+}
+
+function saveState(s) {
+  localStorage.setItem('foilstrong', JSON.stringify(s));
+}
+
+function getWeek() {
+  const s = getState();
+  return s.currentWeek || 'A';
+}
+
+function getLastWeights() {
+  const s = getState();
+  return s.lastWeights || {};
+}
+
+function getSessions() {
+  const s = getState();
+  return s.sessions || [];
+}
+
+function getProgressFlags() {
+  const s = getState();
+  return s.progressFlags || {};
+}
+
+// ===================== SESSION PAGE =====================
+let currentSets = {}; // { exId: [{weight, reps, done}] }
+
+function buildSession() {
+  const week = getWeek();
+  const lastWeights = getLastWeights();
+  const flags = getProgressFlags();
+
+  document.getElementById('weekBadge').textContent = `WEEK ${week}`;
+  document.getElementById('weekBadge').className = `week-badge week-${week.toLowerCase()}-badge`;
+
+  currentSets = {};
+  EXERCISES.forEach(ex => {
+    const config = week === 'A' ? ex.weekA : ex.weekB;
+    const baseWeight = lastWeights[ex.id] || config.defaultWeight || 0;
+    currentSets[ex.id] = Array.from({length: ex.sets}, () => ({
+      weight: baseWeight,
+      reps: config.reps,
+      done: false,
+      note: ''
+    }));
+  });
+
+  const container = document.getElementById('session');
+  const today = new Date().toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short'});
+
+  let html = `
+    <div class="session-header">
+      <div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px">Today's Session</div>
+        <div class="session-date">${today} · Wave ${week}</div>
+      </div>
+    </div>
+  `;
+
+  [1, 2].forEach(circuit => {
+    html += `<div class="circuit-label">Circuit ${circuit}</div>`;
+    EXERCISES.filter(e => e.circuit === circuit).forEach(ex => {
+      const config = week === 'A' ? ex.weekA : ex.weekB;
+      const flagged = flags[ex.id];
+      html += `
+        <div class="exercise-card" id="card-${ex.id}">
+          <div class="exercise-header">
+            <div>
+              <div class="exercise-name">${ex.name}</div>
+              <div class="exercise-meta">${ex.sets} × ${config.reps}${config.weight ? ' · weight' : ''}</div>
+            </div>
+            ${flagged ? `<div class="progress-flag">↑ PROGRESS</div>` : ''}
+          </div>
+          <div class="set-labels">
+            <div class="set-label">SET</div>
+            ${config.weight ? '<div class="set-label">KG</div>' : '<div class="set-label">REPS</div>'}
+            <div class="set-label">${config.weight ? 'REPS' : 'QUAL/NOTE'}</div>
+            <div class="set-label">✓</div>
+          </div>
+          <div class="sets-grid" id="sets-${ex.id}">
+            ${currentSets[ex.id].map((set, i) => buildSetRow(ex, i, config, set)).join('')}
+          </div>
+          ${ex.tip ? `<div class="inline-tip">${ex.tip}</div>` : ''}
+        </div>
+      `;
+    });
+    if (circuit === 1) html += '<div class="divider"></div>';
+  });
+
+  html += `<button class="btn btn-primary finish-btn" onclick="finishSession()">Finish Session</button>`;
+  container.innerHTML = html;
+}
+
+function buildSetRow(ex, i, config, set) {
+  if (config.weight) {
+    return `
+      <div class="set-row">
+        <div class="set-num">${i+1}</div>
+        <input type="number" class="set-input" inputmode="decimal" placeholder="kg"
+          value="${set.weight || ''}"
+          onchange="updateSet('${ex.id}',${i},'weight',this.value)">
+        <input type="number" class="set-input" inputmode="numeric" placeholder="reps"
+          value="${set.reps || ''}"
+          onchange="updateSet('${ex.id}',${i},'reps',this.value)">
+        <div class="set-check ${set.done ? 'done' : ''}" onclick="toggleDone('${ex.id}',${i})">
+          ${set.done ? '✓' : ''}
+        </div>
+      </div>
+    `;
+  } else {
+    return `
+      <div class="set-row">
+        <div class="set-num">${i+1}</div>
+        <input type="number" class="set-input" inputmode="numeric" placeholder="reps"
+          value="${set.reps || ''}"
+          onchange="updateSet('${ex.id}',${i},'reps',this.value)">
+        <input type="text" class="set-input" placeholder="note"
+          value="${set.note || ''}"
+          onchange="updateSet('${ex.id}',${i},'note',this.value)">
+        <div class="set-check ${set.done ? 'done' : ''}" onclick="toggleDone('${ex.id}',${i})">
+          ${set.done ? '✓' : ''}
+        </div>
+      </div>
+    `;
+  }
+}
+
+function updateSet(exId, setIdx, field, val) {
+  currentSets[exId][setIdx][field] = field === 'weight' || field === 'reps' ? parseFloat(val) || 0 : val;
+}
+
+function toggleDone(exId, setIdx) {
+  currentSets[exId][setIdx].done = !currentSets[exId][setIdx].done;
+  const check = document.querySelector(`#sets-${exId} .set-row:nth-child(${setIdx+1}) .set-check`);
+  if (check) {
+    check.classList.toggle('done', currentSets[exId][setIdx].done);
+    check.textContent = currentSets[exId][setIdx].done ? '✓' : '';
+  }
+  // check if all done
+  const allDone = currentSets[exId].every(s => s.done);
+  const card = document.getElementById(`card-${exId}`);
+  if (card) card.classList.toggle('complete', allDone);
+}
+
+function finishSession() {
+  const week = getWeek();
+  const nextWeek = week === 'A' ? 'B' : 'A';
+  const state = getState();
+  const sessions = state.sessions || [];
+  const lastWeights = state.lastWeights || {};
+  const progressFlags = {};
+
+  const newSession = {
+    date: new Date().toISOString(),
+    week,
+    exercises: {}
+  };
+
+  EXERCISES.forEach(ex => {
+    const sets = currentSets[ex.id];
+    newSession.exercises[ex.id] = sets;
+
+    // Update last weights
+    const weightedSets = sets.filter(s => s.weight > 0);
+    if (weightedSets.length > 0) {
+      lastWeights[ex.id] = weightedSets[0].weight;
+    }
+
+    // Check progression
+    const allDone = sets.every(s => s.done);
+    const config = week === 'A' ? ex.weekA : ex.weekB;
+    if (allDone && ex.progressType === 'weight') {
+      progressFlags[ex.id] = true;
+    } else if (allDone && ex.progressType === 'reps_then_weight') {
+      const avgReps = sets.reduce((a,s) => a + (s.reps||0), 0) / sets.length;
+      if (avgReps >= (ex.repTarget || 15)) progressFlags[ex.id] = true;
+    }
+  });
+
+  // Build progression alerts
+  const flaggedExercises = Object.keys(progressFlags);
+  let alertsHtml = '';
+  if (flaggedExercises.length > 0) {
+    alertsHtml = flaggedExercises.map(id => {
+      const ex = EXERCISES.find(e => e.id === id);
+      return `<div class="progression-tip">↑ <strong>${ex.name}</strong>: ${ex.progressRule}</div>`;
+    }).join('');
+  }
+
+  sessions.push(newSession);
+  state.sessions = sessions;
+  state.currentWeek = nextWeek;
+  state.lastWeights = lastWeights;
+  state.progressFlags = progressFlags;
+  saveState(state);
+
+  document.getElementById('nextWeekLabel').textContent = `Week ${nextWeek}`;
+  document.getElementById('progressionAlerts').innerHTML = alertsHtml || '<p style="font-size:12px;color:var(--muted)">Keep building — progression unlocks when you nail all sets.</p>';
+  document.getElementById('finishModal').classList.add('open');
+}
+
+function closeFinishModal() {
+  document.getElementById('finishModal').classList.remove('open');
+  buildSession();
+}
+
+// ===================== HISTORY PAGE =====================
+function buildHistory() {
+  const sessions = getSessions().slice().reverse();
+  const container = document.getElementById('history');
+
+  if (sessions.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">📋</div>No sessions logged yet.<br>Complete your first session to see history here.</div>`;
+    return;
+  }
+
+  let html = '';
+  sessions.forEach((session, idx) => {
+    const date = new Date(session.date);
+    const dateStr = date.toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+    const exCount = Object.keys(session.exercises).length;
+    const totalSets = Object.values(session.exercises).reduce((a,sets) => a + sets.filter(s=>s.done).length, 0);
+
+    html += `
+      <div class="history-entry" onclick="toggleHistory(${idx})">
+        <div class="history-header">
+          <div class="history-date">${dateStr}</div>
+          <div class="week-badge week-${session.week.toLowerCase()}-badge">WEEK ${session.week}</div>
+        </div>
+        <div class="history-summary">${totalSets} sets completed across ${exCount} exercises</div>
+        <div class="history-detail" id="hist-${idx}">
+          ${EXERCISES.map(ex => {
+            const sets = session.exercises[ex.id];
+            if (!sets) return '';
+            const setsStr = sets.map((s,i) => {
+              if (!s.done) return `Set ${i+1}: —`;
+              if (s.weight) return `${s.weight}kg × ${s.reps}`;
+              return `${s.reps} reps${s.note ? ' ('+s.note+')' : ''}`;
+            }).join(' · ');
+            return `
+              <div class="history-exercise">
+                <div class="history-exercise-name">${ex.name}</div>
+                <div class="history-sets">${setsStr}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleHistory(idx) {
+  const el = document.getElementById(`hist-${idx}`);
+  el.classList.toggle('open');
+}
+
+// ===================== PROGRESS PAGE =====================
+function buildProgress() {
+  const sessions = getSessions();
+  const container = document.getElementById('progress');
+
+  if (sessions.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">📈</div>No data yet.<br>Log a few sessions to track your progress.</div>`;
+    return;
+  }
+
+  let html = `
+    <div class="progression-tip" style="margin-bottom:20px">
+      <strong>Wave Loading:</strong> Week A = higher reps, build volume. Week B = heavier load, lower reps. Alternate each session. Progress when all sets are complete.
+    </div>
+  `;
+
+  EXERCISES.forEach(ex => {
+    const exSessions = sessions.filter(s => s.exercises[ex.id]);
+    if (exSessions.length === 0) return;
+
+    const recent = exSessions[exSessions.length - 1].exercises[ex.id];
+    const first = exSessions[0].exercises[ex.id];
+
+    const getMax = (sets) => {
+      const weights = sets.filter(s => s.weight > 0).map(s => s.weight);
+      return weights.length > 0 ? Math.max(...weights) : null;
+    };
+
+    const firstMax = getMax(first);
+    const recentMax = getMax(recent);
+    const change = (firstMax && recentMax) ? (recentMax - firstMax) : null;
+
+    html += `
+      <div class="prog-exercise">
+        <div class="prog-name">${ex.name}</div>
+        <div class="prog-stats">
+          <div class="prog-stat">
+            <div class="prog-stat-val">${exSessions.length}</div>
+            <div class="prog-stat-label">SESSIONS</div>
+          </div>
+          <div class="prog-stat">
+            <div class="prog-stat-val">${recentMax ? recentMax+'kg' : '—'}</div>
+            <div class="prog-stat-label">LAST LOAD</div>
+          </div>
+          <div class="prog-stat">
+            <div class="prog-stat-val" style="color:${change > 0 ? 'var(--accent)' : change < 0 ? 'var(--danger)' : 'var(--muted)'}">
+              ${change !== null ? (change > 0 ? '+' : '') + change + 'kg' : '—'}
+            </div>
+            <div class="prog-stat-label">TOTAL GAIN</div>
+          </div>
+        </div>
+        <div style="margin-top:10px; font-size:11px; color:var(--muted); line-height:1.5">
+          🎯 ${ex.progressRule}
+        </div>
+      </div>
+    `;
+  });
+
+  // Export / Import / Reset
+  html += `
+    <div class="divider"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <button class="btn btn-ghost" onclick="exportData()">⬇ Export backup</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importInput').click()">⬆ Import backup</button>
+    </div>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:16px;line-height:1.6">
+      Export saves a <code style="color:var(--accent)">.json</code> file to your phone. Import restores it.<br>Back up after every few sessions to be safe.
+    </p>
+    <button class="btn btn-danger" style="width:100%" onclick="resetData()">Reset All Data</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">This cannot be undone</p>
+  `;
+
+  container.innerHTML = html;
+}
+
+function exportData() {
+  const state = getState();
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `foilstrong-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Basic validation
+      if (typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid format');
+      saveState(data);
+      alert(`Imported successfully! ${(data.sessions||[]).length} sessions restored.`);
+      buildAll();
+      showPage('progress');
+    } catch(err) {
+      alert('Import failed — make sure you are using a valid Foil Strong backup file.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function resetData() {
+  if (confirm('Delete all session data? This cannot be undone.')) {
+    localStorage.removeItem('foilstrong');
+    buildAll();
+  }
+}
+
+// ===================== NAVIGATION =====================
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(page).classList.add('active');
+  document.querySelectorAll('.tab')[['session','history','progress'].indexOf(page)].classList.add('active');
+
+  if (page === 'history') buildHistory();
+  if (page === 'progress') buildProgress();
+}
+
+function buildAll() {
+  buildSession();
+}
+
+buildAll();
+</script>
+</body>
+</html>
