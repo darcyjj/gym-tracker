@@ -267,7 +267,12 @@
 
 <header>
   <div class="logo">FOIL STRONG</div>
-  <div id="weekBadge" class="week-badge week-a-badge">WEEK A</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button onclick="exportData()" title="Export backup" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--muted);cursor:pointer;font-size:16px;line-height:1">⬇</button>
+    <button onclick="document.getElementById('importInputHeader').click()" title="Import backup" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--muted);cursor:pointer;font-size:16px;line-height:1">⬆</button>
+    <input type="file" id="importInputHeader" accept=".json" style="display:none" onchange="importData(event)">
+    <div id="weekBadge" class="week-badge week-a-badge">WEEK A</div>
+  </div>
 </header>
 
 <div class="tabs">
@@ -942,6 +947,133 @@ function buildProgress() {
         </div>
         <div class="prog-stats">
           <div class="prog-stat">
+            <div class="prog-stat-val">${sessionsA.length + sessionsB.length}</div>
+            <div class="prog-stat-label">SESSIONS</div>
+          </div>
+          <div class="prog-stat">
+            <div class="prog-stat-val" style="font-size:13px">
+              ${ex.progressType === 'weight' ? `<span style="color:var(--week-a)">${statA}</span><span style="color:var(--muted)"> / </span><span style="color:var(--week-b)">${statB}</span>` : statA}
+            </div>
+            <div class="prog-stat-label">${ex.progressType === 'weight' ? 'A / B LOAD' : changeLabel}</div>
+          </div>
+          <div class="prog-stat">
+            <div class="prog-stat-val" style="color:${change > 0 ? 'var(--accent)' : change < 0 ? 'var(--danger)' : 'var(--muted)'}">
+              ${change !== null ? (change >= 0 && ex.progressType === 'weight' ? '+' : '') + change + 'kg' : '—'}
+            </div>
+            <div class="prog-stat-label">${ex.progressType === 'weight' ? 'TOTAL GAIN' : 'CURRENT'}</div>
+          </div>
+        </div>
+        ${sparkHtml}
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.5">
+          🎯 ${ex.progressRule}
+          ${pendingProg   ? `<span style="color:var(--accent);margin-left:6px">· ↑ progression queued</span>` : ''}
+          ${pendingDeload ? `<span style="color:var(--warning);margin-left:6px">· ⚠ deload queued</span>` : ''}
+        </div>
+      </div>`;
+  });
+
+  html += `
+    <div class="divider"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <button class="btn btn-ghost" onclick="exportData()">⬇ Export</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importInput').click()">⬆ Import</button>
+    </div>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:16px;line-height:1.6">
+      Export saves a <code style="color:var(--accent)">.json</code> backup. Import restores it.
+    </p>
+    <button class="btn btn-danger" style="width:100%" onclick="resetData()">Reset All Data</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">This cannot be undone</p>
+  `;
+
+  container.innerHTML = html;
+}
+
+function getProgressStreak(exSessions, exId) {
+  let streak = 0;
+  for (let i = exSessions.length - 1; i >= 0; i--) {
+    const prog = (exSessions[i].progressions || {})[exId];
+    if (prog && prog.type === 'up') streak++;
+    else break;
+  }
+  return streak;
+}
+
+// ============================================================
+// DATA IMPORT / EXPORT / RESET
+// ============================================================
+function exportData() {
+  const state = getState();
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `foilstrong-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data !== 'object' || Array.isArray(data)) throw new Error();
+      // Support importing old v1 data
+      if (data.lastWeights && !data.exerciseState) {
+        data.exerciseState = migrateV1(data);
+      }
+      saveState(data);
+      alert(`Imported! ${(data.sessions||[]).length} sessions restored.`);
+      buildAll();
+    } catch {
+      alert('Import failed — use a valid Foil Strong backup file.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function migrateV1(oldState) {
+  const es = {};
+  Object.entries(oldState.lastWeights || {}).forEach(([exId, w]) => {
+    const ex = EXERCISES.find(e => e.id === exId);
+    if (!ex) return;
+    if (ex.progressType === 'reps_then_weight') {
+      es[exId] = { shared: { load: 0 } }; // old data had no belt load
+    } else {
+      es[exId] = { A: { weight: w }, B: { weight: w } };
+    }
+  });
+  return es;
+}
+
+function resetData() {
+  if (confirm('Delete all session data? This cannot be undone.')) {
+    localStorage.removeItem('foilstrong_v2');
+    buildAll();
+  }
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(page).classList.add('active');
+  document.querySelectorAll('.tab')[['session','history','progress'].indexOf(page)].classList.add('active');
+  if (page === 'history') buildHistory();
+  if (page === 'progress') buildProgress();
+}
+
+function buildAll() { buildSession(); }
+buildAll();
+</script>
+</body>
+</html>   <div class="prog-stat">
             <div class="prog-stat-val">${sessionsA.length + sessionsB.length}</div>
             <div class="prog-stat-label">SESSIONS</div>
           </div>
