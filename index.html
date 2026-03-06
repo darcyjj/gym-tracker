@@ -333,7 +333,7 @@
 //   'weight'           — all sets @ target reps → +step kg next same-wave session
 //                        fail twice on same wave → deload BOTH waves by step
 //   'reps_then_weight' — track a single sharedLoad (belt/vest) across BOTH waves
-//                        hit repTarget on any session → sharedLoad +step
+//                        hit repTargetA (Wave A) or repTargetB (Wave B) → sharedLoad +step
 //   'quality'          — track quality score 1-5 (no auto weight)
 //   'variation'        — track variation name (no auto weight)
 //
@@ -601,7 +601,7 @@ function buildExerciseCard(ex, week, state) {
   // Rep progress bar for reps_then_weight
   let repBar = '';
   if (ex.progressType === 'reps_then_weight') {
-    const repTarget = ex.repTarget || 15;
+    const repTarget = week === 'A' ? (ex.repTargetA || 12) : (ex.repTargetB || 5);
     const currentAvg = currentSets[ex.id].reduce((a, s) => a + (s.reps || 0), 0) / ex.sets;
     const pct = Math.min(100, Math.round((currentAvg / repTarget) * 100));
     repBar = `
@@ -673,7 +673,8 @@ function updateSet(exId, setIdx, field, val) {
 function updateRepBar(exId) {
   const ex = EXERCISES.find(e => e.id === exId);
   if (!ex || ex.progressType !== 'reps_then_weight') return;
-  const repTarget = ex.repTarget || 15;
+  const week = getWeek();
+  const repTarget = week === 'A' ? (ex.repTargetA || 12) : (ex.repTargetB || 5);
   const sets = currentSets[exId];
   const avg = sets.reduce((a, s) => a + (s.reps || 0), 0) / sets.length;
   const pct = Math.min(100, Math.round((avg / repTarget) * 100));
@@ -822,17 +823,17 @@ function finishSession() {
 
       if (allDone) {
         const avgReps = sets.reduce((a, s) => a + (s.reps || 0), 0) / sets.length;
-        const target = ex.repTarget || 15;
+        const target = week === 'A' ? (ex.repTargetA || ex.repTarget || 12) : (ex.repTargetB || ex.repTarget || 5);
         if (avgReps >= target) {
           sh.failStreak = 0;
           sh.pendingProgress = true;
           const newLoad = (sh.load || 0) + ex.step;
           newSession.progressions[ex.id] = { type: 'up', from: sh.load, to: newLoad };
-          summaryItems.push({ type: 'up', ex, msg: `Hit ${target} rep avg — belt/vest → ${newLoad}kg next session` });
+          summaryItems.push({ type: 'up', ex, msg: `Wave ${week}: hit ${target} rep avg — belt/vest → ${newLoad}kg next session` });
         } else {
-          sh.failStreak = 0; // completed, just didn't hit target — no penalty
-          const needed = target - avgReps.toFixed(1);
-          summaryItems.push({ type: 'hold', ex, msg: `Avg ${avgReps.toFixed(1)} reps — ${needed} more to progress` });
+          sh.failStreak = 0;
+          const needed = (target - avgReps).toFixed(1);
+          summaryItems.push({ type: 'hold', ex, msg: `Wave ${week}: avg ${avgReps.toFixed(1)} reps — ${needed} more to progress` });
         }
       } else if (anyDone) {
         sh.failStreak = (sh.failStreak || 0) + 1;
