@@ -292,7 +292,7 @@
       Nice work. Session saved. Next session: <strong id="nextWeekLabel" style="color:var(--text)"></strong>.
     </p>
     <div id="progressionAlerts" style="margin-bottom:16px;"></div>
-    <button class="btn btn-primary" style="width:100%" onclick="closeFinishModal()">Let's go</button>
+    <button class="btn btn-primary" style="width:100%" onclick="closeFinishModal();showPage('history')">Done — see history ↗</button>
   </div>
 </div>
 
@@ -937,17 +937,23 @@ function buildHistory() {
     return;
   }
 
+  const totalCount = sessions.length;
   sessions.forEach((session, idx) => {
     const date = new Date(session.date);
     const dateStr = date.toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
     const totalSets = Object.values(session.exercises).reduce((a, sets) => a + sets.filter(s => s.done).length, 0);
     const progCount = Object.keys(session.progressions || {}).length;
+    const realIdx = totalCount - 1 - idx; // index in un-reversed state array
 
     html += `
       <div class="history-entry" onclick="toggleHistory(${idx})">
         <div class="history-header">
           <div class="history-date">${dateStr}</div>
-          <div class="week-badge week-${session.week.toLowerCase()}-badge">WEEK ${session.week}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="week-badge week-${session.week.toLowerCase()}-badge">WAVE ${session.week}</div>
+            <button onclick="event.stopPropagation();deleteSession(${realIdx})" title="Delete session"
+              style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--muted);font-size:14px;cursor:pointer;line-height:1">🗑</button>
+          </div>
         </div>
         <div class="history-summary">
           ${totalSets} sets completed
@@ -981,6 +987,23 @@ function buildHistory() {
 
 function toggleHistory(idx) {
   document.getElementById(`hist-${idx}`).classList.toggle('open');
+}
+
+function deleteSession(realIdx) {
+  if (!confirm('Delete this session? This cannot be undone.')) return;
+  const state = getState();
+  state.sessions.splice(realIdx, 1);
+  saveState(state);
+  buildHistory();
+  showToast('Session deleted');
+}
+
+function showToast(msg, color) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${color || 'var(--accent)'};color:#0e0f11;padding:10px 20px;border-radius:20px;font-weight:500;font-size:13px;z-index:999;transition:opacity 0.4s;white-space:nowrap`;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 2000);
 }
 
 // ============================================================
@@ -1431,11 +1454,7 @@ function savePastSession() {
   buildHistory();
 
   // Show a brief confirmation
-  const toast = document.createElement('div');
-  toast.textContent = '✓ Past session saved';
-  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#0e0f11;padding:10px 20px;border-radius:20px;font-weight:500;font-size:13px;z-index:999;transition:opacity 0.4s';
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 2000);
+  showToast('✓ Past session saved');
 }
 
 
