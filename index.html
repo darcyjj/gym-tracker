@@ -353,8 +353,8 @@ const EXERCISES = [
   {
     id: 'pullup', name: 'Pull-ups', circuit: 1,
     sets: 3,
-    weekA: { reps: 12, weight: false },
-    weekB: { reps: 8, weight: false },
+    weekA: { reps: 12, weight: true },
+    weekB: { reps: 5, weight: true },
     progressType: 'reps_then_weight', repTarget: 15, step: 2.5,
     progressRule: 'Hit 3×15 → belt/vest weight added (+2.5kg)'
   },
@@ -378,8 +378,8 @@ const EXERCISES = [
   {
     id: 'dips', name: 'Dips', circuit: 2,
     sets: 3,
-    weekA: { reps: 12, weight: false },
-    weekB: { reps: 8, weight: false },
+    weekA: { reps: 12, weight: true },
+    weekB: { reps: 5, weight: true },
     progressType: 'reps_then_weight', repTarget: 15, step: 2.5,
     progressRule: 'Hit 3×15 → belt/vest weight added (+2.5kg)'
   },
@@ -421,8 +421,16 @@ function getSuggestedWeight(state, ex, week) {
 }
 
 // Suggested belt/vest load for reps_then_weight (shared across A+B)
-function getSuggestedSharedLoad(state, ex) {
+// Returns wave-specific last used weight if available, falling back to shared load
+function getSuggestedSharedLoad(state, ex, wave) {
   const shared = (getExState(state, ex.id)).shared || {};
+  // Per-wave last used weight takes priority (set when user logs a session)
+  if (wave && shared[`lastWeight_${wave}`]) {
+    const base = shared[`lastWeight_${wave}`];
+    if (shared.pendingProgress) return base + ex.step;
+    if (shared.pendingDeload) return Math.max(0, base - ex.step);
+    return base;
+  }
   if (shared.pendingProgress) return (shared.load || 0) + ex.step;
   if (shared.pendingDeload) return Math.max(0, (shared.load || 0) - ex.step);
   return shared.load || 0;
@@ -488,7 +496,7 @@ function startSession(wave) {
     if (ex.progressType === 'weight' && config.weight) {
       suggested = getSuggestedWeight(state, ex, week);
     } else if (ex.progressType === 'reps_then_weight') {
-      suggested = getSuggestedSharedLoad(state, ex);
+      suggested = getSuggestedSharedLoad(state, ex, week);
     } else if (config.defaultWeight) {
       suggested = config.defaultWeight;
     }
@@ -820,6 +828,10 @@ function finishSession() {
       // Clear pending flags
       sh.pendingProgress = false;
       sh.pendingDeload = false;
+
+      // Record per-wave last used weight so it pre-fills next same-wave session
+      const usedBeltWeight = sets.find(s => s.weight > 0)?.weight;
+      if (usedBeltWeight) sh[`lastWeight_${week}`] = usedBeltWeight;
 
       if (allDone) {
         const avgReps = sets.reduce((a, s) => a + (s.reps || 0), 0) / sets.length;
